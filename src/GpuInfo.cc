@@ -18,19 +18,36 @@ namespace gpuinfo {
       }
 
       virtual std::string name() const override {
-        NvAPI_ShortString name_string;
+        NvAPI_ShortString nv_name;
         NvAPI_Status status = NVAPI_OK;
 
-        status = NvAPI_GPU_GetFullName(this->_gpu_handle, name_string);
+        status = NvAPI_GPU_GetFullName(this->_gpu_handle, nv_name);
         if (status != NVAPI_OK) {
           // TODO: handle error
         }
-        return std::string{ name_string };
+        return std::string{ nv_name };
       }
 
       virtual memory_info memory() const override {
-        return memory_info();
+        NvAPI_Status status = NVAPI_OK;
+        NV_DISPLAY_DRIVER_MEMORY_INFO nv_memory_info;
+
+        nv_memory_info.version = NV_DISPLAY_DRIVER_MEMORY_INFO_VER;
+
+        status = NvAPI_GPU_GetMemoryInfo(this->_gpu_handle, std::addressof(nv_memory_info));
+        if (status != NVAPI_OK) {
+          // TODO: handle error
+        }
+
+        memory_info mem_info;
+        mem_info.system = nv_memory_info.systemVideoMemory;
+        mem_info.shared_system = nv_memory_info.sharedSystemMemory;
+        mem_info.dedicated = nv_memory_info.dedicatedVideoMemory;
+        mem_info.available_dedicated = nv_memory_info.availableDedicatedVideoMemory;
+
+        return mem_info;
       }
+
       virtual std::vector<thermal_sensor_info> thermal_sensors() const override {
         return std::vector<thermal_sensor_info>();
       }
@@ -67,5 +84,19 @@ namespace gpuinfo {
     
     // devices is initialized once in a thread-safe manner
     return devices;
+  }
+
+  std::ostream& operator<<(std::ostream& os, const memory_info& info) {
+    os << "[";
+    os << "(dedicated=" << info.dedicated << "kB)";
+    os << ",";
+    os << "(available_dedicated=" << info.available_dedicated << "kB)";
+    os << ",";
+    os << "(system=" << info.system << "kB)";
+    os << ",";
+    os << "(shared_system=" << info.shared_system << "kB)";
+    os << "]";
+
+    return os;
   }
 }

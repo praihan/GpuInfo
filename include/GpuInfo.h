@@ -18,6 +18,7 @@ namespace gpuinfo {
     u32 system;
     u32 shared_system;
   };
+  std::ostream& operator<<(std::ostream&, const memory_info&);
 
   struct thermal_sensor_info {
     u32 index;
