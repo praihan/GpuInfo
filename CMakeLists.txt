@@ -8,7 +8,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 cmake_policy(SET CMP0015 NEW)
 
 # NVAPI_ROOT_DIR should default to the provided NVAPI
-set(NVAPI_ROOT_DIR deps/NVAPI/)
+set(NVAPI_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/NVAPI/" CACHE PATH "The directory where NVAPI has been extracted")
 find_package(nvapi REQUIRED)
 
 set(SOURCES
