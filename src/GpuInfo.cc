@@ -55,6 +55,7 @@ namespace gpuinfo {
 
       // construct an nvidia_device for each handle that we got
       std::vector<std::shared_ptr<const device>> devices;
+      devices.reserve(std::size_t{ physical_handles_count });
       for (NvU32 i = 0; i < physical_handles_count; ++i) {
         devices.emplace_back(std::make_shared<nvidia_device>(physical_handles[i]));
       }
