@@ -15,11 +15,11 @@
 
 namespace gpuinfo {
 
+  /// \cond INTERNAL
   /// This anonymous namespace is for general utility functions
   namespace {
     ///
     /// Gets a canonical string to represent a `thermal_sensor`.
-    /// \internal
     ///
     const char* thermal_sensor_type_to_string(thermal_sensor sensor_target) {
       switch (sensor_target) {
@@ -38,12 +38,13 @@ namespace gpuinfo {
       }
     }
   }
+  /// \endcond
 
   /// This anonymous namespace is for NVIDIA-specific things
   namespace {
+    /// \cond INTERNAL
     ///
     /// Gets the `thermal_sensor` corresponding to an `NV_THERMAL_TARGET`.
-    /// \internal
     ///
     thermal_sensor _nv_thermal_target_convert(NV_THERMAL_TARGET target) {
       switch (target) {
@@ -59,6 +60,7 @@ namespace gpuinfo {
         return thermal_sensor::unknown;
       }
     }
+    /// \endcond
 
     ///
     /// The `nvidia_device` structure is an implementation of `device` for NVIDIA devices
@@ -155,9 +157,9 @@ namespace gpuinfo {
       NvPhysicalGpuHandle _gpu_handle;
     };
 
+    /// \cond INTERNAL
     ///
     /// Append discovered NVIDIA devices to the provided container
-    /// \internal
     ///
     void _nv_fill_devices(std::vector<std::shared_ptr<const device>>& devices_container) {
       NvPhysicalGpuHandle physical_handles[NVAPI_MAX_PHYSICAL_GPUS];
@@ -179,6 +181,7 @@ namespace gpuinfo {
         devices_container.emplace_back(std::make_shared<nvidia_device>(physical_handles[i]));
       }
     }
+    /// \endcond
   }
 
   const std::vector<std::shared_ptr<const device>>& devices() {
