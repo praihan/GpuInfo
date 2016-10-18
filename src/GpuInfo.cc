@@ -15,26 +15,8 @@
 
 namespace gpuinfo {
 
+  /// This anonymous namespace is for general utility functions
   namespace {
-    ///
-    /// Gets the `thermal_sensor` corresponding to an `NV_THERMAL_TARGET`.
-    /// \internal
-    ///
-    thermal_sensor nv_thermal_target_convert(NV_THERMAL_TARGET target) {
-      switch (target) {
-      case NVAPI_THERMAL_TARGET_GPU:
-        return thermal_sensor::gpu;
-      case NVAPI_THERMAL_TARGET_MEMORY:
-        return thermal_sensor::memory;
-      case NVAPI_THERMAL_TARGET_POWER_SUPPLY:
-        return thermal_sensor::power_supply;
-      case NVAPI_THERMAL_TARGET_BOARD:
-        return thermal_sensor::ambient;
-      default:
-        return thermal_sensor::unknown;
-      }
-    }
-
     ///
     /// Gets a canonical string to represent a `thermal_sensor`.
     /// \internal
@@ -53,6 +35,28 @@ namespace gpuinfo {
         return "unknown";
       default:
         return "<multiple>";
+      }
+    }
+  }
+
+  /// This anonymous namespace is for NVIDIA-specific things
+  namespace {
+    ///
+    /// Gets the `thermal_sensor` corresponding to an `NV_THERMAL_TARGET`.
+    /// \internal
+    ///
+    thermal_sensor _nv_thermal_target_convert(NV_THERMAL_TARGET target) {
+      switch (target) {
+      case NVAPI_THERMAL_TARGET_GPU:
+        return thermal_sensor::gpu;
+      case NVAPI_THERMAL_TARGET_MEMORY:
+        return thermal_sensor::memory;
+      case NVAPI_THERMAL_TARGET_POWER_SUPPLY:
+        return thermal_sensor::power_supply;
+      case NVAPI_THERMAL_TARGET_BOARD:
+        return thermal_sensor::ambient;
+      default:
+        return thermal_sensor::unknown;
       }
     }
 
@@ -138,7 +142,7 @@ namespace gpuinfo {
         std::transform(sensors_begin, sensors_end, std::back_inserter(sensor_infos), [](const nv_sensor_type& nv_sensor) -> thermal_sensor_info {
           thermal_sensor_info sensor_info;
           sensor_info.current_temp = nv_sensor.currentTemp;
-          sensor_info.sensor_type  = nv_thermal_target_convert(nv_sensor.target);
+          sensor_info.sensor_type  = _nv_thermal_target_convert(nv_sensor.target);
 
           return sensor_info;
         });
@@ -147,13 +151,15 @@ namespace gpuinfo {
       }
 
     private:
+      /// The handle to a physical device provided by NVAPI
       NvPhysicalGpuHandle _gpu_handle;
     };
-  }
 
-  const std::vector<std::shared_ptr<const device>>& devices() {
-    static const auto devices = std::invoke([]() -> std::vector<std::shared_ptr<const device>> {
-
+    ///
+    /// Append discovered NVIDIA devices to the provided container
+    /// \internal
+    ///
+    void _nv_fill_devices(std::vector<std::shared_ptr<const device>>& devices_container) {
       NvPhysicalGpuHandle physical_handles[NVAPI_MAX_PHYSICAL_GPUS];
       NvU32 physical_handles_count;
 
@@ -167,14 +173,20 @@ namespace gpuinfo {
       }
 
       // construct an nvidia_device for each handle that we got
-      std::vector<std::shared_ptr<const device>> devices;
-      devices.reserve(std::size_t{ physical_handles_count });
+      // and make sure to reserve enough room ahead of time
+      devices_container.reserve(devices_container.size() + std::size_t{ physical_handles_count });
       for (NvU32 i = 0; i < physical_handles_count; ++i) {
-        devices.emplace_back(std::make_shared<nvidia_device>(physical_handles[i]));
+        devices_container.emplace_back(std::make_shared<nvidia_device>(physical_handles[i]));
       }
+    }
+  }
 
+  const std::vector<std::shared_ptr<const device>>& devices() {
+    static const auto devices = std::invoke([]() -> std::vector<std::shared_ptr<const device>> {
+      std::vector<std::shared_ptr<const device>> devices;
+      // fill with nvidia devices
+      _nv_fill_devices(devices);
       return devices;
-
     });
     
     // devices is initialized once in a thread-safe manner
