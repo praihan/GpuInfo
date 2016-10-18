@@ -1,3 +1,5 @@
+/// \file
+
 #include <GpuInfo.h>
 
 #include <Windows.h>
@@ -14,6 +16,10 @@
 namespace gpuinfo {
 
   namespace {
+    ///
+    /// Gets the `thermal_sensor` corresponding to an `NV_THERMAL_TARGET`.
+    /// \internal
+    ///
     thermal_sensor nv_thermal_target_convert(NV_THERMAL_TARGET target) {
       switch (target) {
       case NVAPI_THERMAL_TARGET_GPU:
@@ -29,6 +35,10 @@ namespace gpuinfo {
       }
     }
 
+    ///
+    /// Gets a canonical string to represent a `thermal_sensor`.
+    /// \internal
+    ///
     const char* thermal_sensor_type_to_string(thermal_sensor sensor_target) {
       switch (sensor_target) {
       case thermal_sensor::gpu:
@@ -46,12 +56,22 @@ namespace gpuinfo {
       }
     }
 
+    ///
+    /// The `nvidia_device` structure is an implementation of `device` for NVIDIA devices
+    /// using NVAPI.
+    ///
     struct nvidia_device : device {
+      ///
+      /// Initializes an `nvidia_device` from an NVAPI handle to a physical device.
+      ///
       nvidia_device(NvPhysicalGpuHandle gpu_handle) : _gpu_handle(gpu_handle) {
         // TODO: handle error
         assert(this->_gpu_handle != nullptr);
       }
 
+      ///
+      /// \copydoc device::name()
+      ///
       virtual std::string name() const override {
         NvAPI_ShortString nv_name;
         NvAPI_Status status = NVAPI_OK;
@@ -64,6 +84,9 @@ namespace gpuinfo {
         return std::string{ nv_name };
       }
 
+      ///
+      /// \copydoc device::memory()
+      ///
       virtual memory_info memory() const override {
         NvAPI_Status status = NVAPI_OK;
         NV_DISPLAY_DRIVER_MEMORY_INFO nv_memory_info;
@@ -85,6 +108,9 @@ namespace gpuinfo {
         return mem_info;
       }
 
+      ///
+      /// \copydoc device::thermal_sensors()
+      ///
       virtual std::vector<thermal_sensor_info> thermal_sensors() const override {
         NV_GPU_THERMAL_SETTINGS nv_thermal_settings;
         NvAPI_Status status = NVAPI_OK;
@@ -155,27 +181,29 @@ namespace gpuinfo {
     return devices;
   }
 
-  std::ostream& operator<<(std::ostream& os, const memory_info& info) {
-    os << "[";
-    os << "(dedicated=" << info.dedicated << "kB)";
-    os << ",";
-    os << "(available_dedicated=" << info.available_dedicated << "kB)";
-    os << ",";
-    os << "(system=" << info.system << "kB)";
-    os << ",";
-    os << "(shared_system=" << info.shared_system << "kB)";
-    os << "]";
+  namespace iostream {
+    std::ostream& operator<<(std::ostream& os, const memory_info& info) {
+      os << "[";
+      os << "(dedicated=" << info.dedicated << "kB)";
+      os << ",";
+      os << "(available_dedicated=" << info.available_dedicated << "kB)";
+      os << ",";
+      os << "(system=" << info.system << "kB)";
+      os << ",";
+      os << "(shared_system=" << info.shared_system << "kB)";
+      os << "]";
 
-    return os;
-  }
+      return os;
+    }
 
-  std::ostream& operator<<(std::ostream& os, const thermal_sensor_info& info) {
-    os << "[";
-    os << "(current_temp=" << info.current_temp << "C)";
-    os << ",";
-    os << "(sensor_type=" << thermal_sensor_type_to_string(info.sensor_type) << ")";
-    os << "]";
+    std::ostream& operator<<(std::ostream& os, const thermal_sensor_info& info) {
+      os << "[";
+      os << "(current_temp=" << info.current_temp << "C)";
+      os << ",";
+      os << "(sensor_type=" << thermal_sensor_type_to_string(info.sensor_type) << ")";
+      os << "]";
 
-    return os;
+      return os;
+    }
   }
 }

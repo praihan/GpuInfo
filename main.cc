@@ -2,6 +2,7 @@
 #include <GpuInfo.h>
 
 using namespace std;
+using namespace gpuinfo::iostream;
 
 int main(int argc, char *argv[])
 {
