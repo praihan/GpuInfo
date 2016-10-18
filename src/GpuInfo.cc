@@ -6,11 +6,46 @@
 #include <utility>
 #include <functional>
 #include <memory>
+#include <algorithm>
+#include <iterator>
+#include <type_traits>
 #include <cassert>
 
 namespace gpuinfo {
 
   namespace {
+    thermal_sensor nv_thermal_target_convert(NV_THERMAL_TARGET target) {
+      switch (target) {
+      case NVAPI_THERMAL_TARGET_GPU:
+        return thermal_sensor::gpu;
+      case NVAPI_THERMAL_TARGET_MEMORY:
+        return thermal_sensor::memory;
+      case NVAPI_THERMAL_TARGET_POWER_SUPPLY:
+        return thermal_sensor::power_supply;
+      case NVAPI_THERMAL_TARGET_BOARD:
+        return thermal_sensor::ambient;
+      default:
+        return thermal_sensor::unknown;
+      }
+    }
+
+    const char* thermal_sensor_type_to_string(thermal_sensor sensor_target) {
+      switch (sensor_target) {
+      case thermal_sensor::gpu:
+        return "gpu";
+      case thermal_sensor::memory:
+        return "memory";
+      case thermal_sensor::power_supply:
+        return "power_supply";
+      case thermal_sensor::ambient:
+        return "ambient";
+      case thermal_sensor::unknown:
+        return "unknown";
+      default:
+        return "<multiple>";
+      }
+    }
+
     struct nvidia_device : device {
       nvidia_device(NvPhysicalGpuHandle gpu_handle) : _gpu_handle(gpu_handle) {
         // TODO: handle error
@@ -24,6 +59,7 @@ namespace gpuinfo {
         status = NvAPI_GPU_GetFullName(this->_gpu_handle, nv_name);
         if (status != NVAPI_OK) {
           // TODO: handle error
+          assert(false);
         }
         return std::string{ nv_name };
       }
@@ -37,21 +73,54 @@ namespace gpuinfo {
         status = NvAPI_GPU_GetMemoryInfo(this->_gpu_handle, std::addressof(nv_memory_info));
         if (status != NVAPI_OK) {
           // TODO: handle error
+          assert(false);
         }
 
         memory_info mem_info;
-        mem_info.system = nv_memory_info.systemVideoMemory;
-        mem_info.shared_system = nv_memory_info.sharedSystemMemory;
-        mem_info.dedicated = nv_memory_info.dedicatedVideoMemory;
+        mem_info.system              = nv_memory_info.systemVideoMemory;
+        mem_info.shared_system       = nv_memory_info.sharedSystemMemory;
+        mem_info.dedicated           = nv_memory_info.dedicatedVideoMemory;
         mem_info.available_dedicated = nv_memory_info.availableDedicatedVideoMemory;
 
         return mem_info;
       }
 
       virtual std::vector<thermal_sensor_info> thermal_sensors() const override {
-        return std::vector<thermal_sensor_info>();
+        NV_GPU_THERMAL_SETTINGS nv_thermal_settings;
+        NvAPI_Status status = NVAPI_OK;
+
+        nv_thermal_settings.version = NV_GPU_THERMAL_SETTINGS_VER;
+
+        status = NvAPI_GPU_GetThermalSettings(this->_gpu_handle, NVAPI_THERMAL_TARGET_ALL, std::addressof(nv_thermal_settings));
+        if (status != NVAPI_OK) {
+          // TODO: handle error
+          assert(false);
+        }
+
+        const std::size_t sensors_count = nv_thermal_settings.count;
+
+        std::vector<thermal_sensor_info> sensor_infos;
+        sensor_infos.reserve(sensors_count);
+
+        // This type is anonymous, so we give it a name here
+        using nv_sensor_type = std::remove_reference_t<decltype(nv_thermal_settings.sensor[0])>;
+
+        nv_sensor_type* const sensors_begin = nv_thermal_settings.sensor;
+        nv_sensor_type* const sensors_end   = nv_thermal_settings.sensor + sensors_count;
+
+        // for each sensor, create a thermal_sensor_info and place at the end of the vector
+        std::transform(sensors_begin, sensors_end, std::back_inserter(sensor_infos), [](const nv_sensor_type& nv_sensor) -> thermal_sensor_info {
+          thermal_sensor_info sensor_info;
+          sensor_info.current_temp = nv_sensor.currentTemp;
+          sensor_info.sensor_type  = nv_thermal_target_convert(nv_sensor.target);
+
+          return sensor_info;
+        });
+
+        return sensor_infos;
       }
 
+    private:
       NvPhysicalGpuHandle _gpu_handle;
     };
   }
@@ -95,6 +164,16 @@ namespace gpuinfo {
     os << "(system=" << info.system << "kB)";
     os << ",";
     os << "(shared_system=" << info.shared_system << "kB)";
+    os << "]";
+
+    return os;
+  }
+
+  std::ostream& operator<<(std::ostream& os, const thermal_sensor_info& info) {
+    os << "[";
+    os << "(current_temp=" << info.current_temp << "C)";
+    os << ",";
+    os << "(sensor_type=" << thermal_sensor_type_to_string(info.sensor_type) << ")";
     os << "]";
 
     return os;
